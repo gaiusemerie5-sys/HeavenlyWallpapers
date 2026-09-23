@@ -1,29 +1,52 @@
-# Heavenly Wallpapers — Android v1.2
+name: Build Heavenly Wallpapers APK
 
-A native Kotlin + Jetpack Compose Christian wallpaper app foundation.
+on:
+  workflow_dispatch:
 
-## What works
-- Dark cinematic UI
-- Home / Explore / Favorites / Downloads / Settings
-- Search across wallpaper title/category
-- Six wallpaper scenes rendered locally (no remote server required)
-- Persistent Favorites using SharedPreferences
-- 4K-oriented wallpaper generation for downloads
-- Save generated wallpaper images to Pictures/Heavenly Wallpapers on modern Android
-- Set generated scene as a static wallpaper
-- Actual Android `WallpaperService` live wallpaper
-- Live wallpaper selection is persisted and rendered by the service
-- Smooth lightweight procedural animation in the live wallpaper
+jobs:
+  build:
+    runs-on: ubuntu-24.04
 
-## Build
-Open this project folder in Android Studio with an Android SDK installed. Let Gradle sync, connect an Android device with USB debugging enabled, and press Run.
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-For a release APK: Android Studio → Build → Generate App Bundles or APKs → Generate APKs.
+      - name: Set up Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '17'
 
-## Production roadmap
-- Replace procedural scenes with commissioned/AI-generated 4K artwork.
-- Add Media3/video or OpenGL particle layers for richer live scenes.
-- Add Room/DataStore for richer offline state.
-- Add a remote catalog/API and admin content dashboard.
-- Add subscriptions/ads only after defining the business model and privacy requirements.
-- Add privacy policy, terms, app icon, splash artwork, store screenshots, and release signing.
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK packages
+        run: |
+          yes | sdkmanager --licenses > /dev/null || true
+          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+
+      - name: Install Gradle
+        run: |
+          curl -L -o gradle.zip https://services.gradle.org/distributions/gradle-8.9-bin.zip
+          unzip -q gradle.zip
+
+      - name: Extract Heavenly Wallpapers project
+        run: |
+          mkdir -p project
+          unzip -q HeavenlyWallpapers-v1.3-source.zip -d project
+
+      - name: Find project
+        run: |
+          find project -maxdepth 3 -type f -name "settings.gradle.kts" -o -name "build.gradle.kts"
+
+      - name: Build APK
+        working-directory: project/HeavenlyWallpapers-v1.3
+        run: |
+          $GITHUB_WORKSPACE/gradle-8.9/bin/gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: HeavenlyWallpapers-debug-apk
+          path: project/HeavenlyWallpapers-v1.3/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
